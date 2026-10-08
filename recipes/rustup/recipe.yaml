@@ -1,6 +1,6 @@
 context:
   version: "1.29.1"
-  build_number: 0
+  build_number: 1
   # rustup acts as whichever tool it is invoked as; these are its TOOLS and
   # DUP_TOOLS proxies.
   proxies: >-
@@ -18,6 +18,8 @@ source:
 
 build:
   number: ${{ build_number }}
+  dynamic_linking:
+    overlinking_behavior: error
   script:
     # git-testament stamps the version from git; keep it out of the enclosing
     # checkout the work directory lives in.
@@ -25,6 +27,9 @@ build:
       then:
         - export CARGO_HOME="$SRC_DIR/.cargo-home"
         - export GIT_CEILING_DIRECTORIES="$(dirname "$SRC_DIR")"
+        # Compile the bundled liblzma rather than link whatever pkg-config finds,
+        # such as Homebrew's on the macOS runners.
+        - export LZMA_API_STATIC=1
         # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
         - cargo update --package chacha20
         # no-self-update leaves rustup's own updates to pixi, so `rustup update`
