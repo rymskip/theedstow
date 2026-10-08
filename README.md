@@ -1,10 +1,10 @@
 # theedstow
 
-Recipes for the [theedstow](https://prefix.dev/channels/theedstow) conda
-channel. Each folder under `recipes/` is one package.
+Recipes for the `rymskip/theedstow` conda channel on prefix.dev. Each folder
+under `recipes/` is one package.
 
 ```toml
-channels = ["conda-forge", "https://prefix.dev/theedstow"]
+channels = ["conda-forge", "https://prefix.dev/rymskip/theedstow"]
 
 [dependencies]
 surrealdb = "*"
@@ -12,8 +12,8 @@ surrealdb = "*"
 
 A daily workflow checks every recipe for a new upstream release and bumps it.
 Only bumped recipes, or on a push the recipes it changed, get built and tested
-natively on every platform, then published to the channel with the
-`PREFIX_API_KEY` repository secret. A bump is committed once its recipe built on
+natively on every platform, then published with a Sigstore attestation through
+prefix.dev trusted publishing. A bump is committed once its recipe built on
 every platform; a recipe that failed anywhere is retried on the next run.
 
 A recipe's version comes from `extra.latest_version_url` when it sets one,
