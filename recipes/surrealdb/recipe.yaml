@@ -1,6 +1,6 @@
 context:
   version: "3.3.2"
-  build_number: 0
+  build_number: 1
   download_url: https://download.surrealdb.com/v${{ version }}
 
 package:
@@ -37,10 +37,8 @@ build:
   number: ${{ build_number }}
   dynamic_linking:
     overlinking_behavior: error
-    # OS-provided, but only recognised as system libraries when a sysroot is in
-    # the build environment: glibc's loader and Windows API sets.
+    # Windows API sets are OS-provided, but the check does not resolve them.
     missing_dso_allowlist:
-      - ld-linux-*.so.*
       - api-ms-win-core-*.dll
   script:
     # The crate ships the release's LICENSE; `.crate` is not auto-extracted.
@@ -54,10 +52,20 @@ build:
         - copy surreal.exe "%LIBRARY_BIN%\surreal.exe"
 
 requirements:
+  # The sysroot tells the linking check which libraries glibc provides, and
+  # exports the __glibc floor the upstream binaries need.
+  build:
+    - if: linux
+      then: ${{ stdlib('c') }}
+  # The linking check matches other libraries only against host packages.
+  host:
+    - if: linux
+      then:
+        - libgcc
+        - libstdcxx
   run:
     - if: linux
       then:
-        - __glibc >=2.34
         - libgcc
         - libstdcxx
     - if: osx and x86_64
