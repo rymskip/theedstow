@@ -1,12 +1,19 @@
 // Moves each recipe under recipes/ to its latest upstream version: the one at
 // extra.latest_version_url, or else the release GitHub marks as latest for
-// about.repository. Only ever moves forward.
+// about.repository, or else its highest stable tag. Only ever moves forward.
 import { encodeHex } from "@std/encoding/hex";
-import { greaterThan, parse as parseVersion } from "@std/semver";
+import {
+  format,
+  greaterThan,
+  parse as parseVersion,
+  type SemVer,
+  tryParse,
+} from "@std/semver";
 import { z } from "zod";
 import {
   type Build,
   builds,
+  git,
   maxMatrixJobs,
   platforms,
   recipeNames,
@@ -55,11 +62,45 @@ async function latestVersion(recipe: RenderedRecipe): Promise<string> {
     headers.set("Authorization", `Bearer ${token}`);
   }
   const repository = githubRepository(recipe.about.repository);
-  const response = await fetchOk(
-    `https://api.github.com/repos/${repository}/releases/latest`,
-    { headers },
-  );
+  const url = `https://api.github.com/repos/${repository}/releases/latest`;
+  const response = await fetch(url, { headers });
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return await latestTag(repository);
+  }
+  if (!response.ok) {
+    throw new Error(
+      `${url} answered ${response.status}: ${await response.text()}`,
+    );
+  }
   return Release.parse(await response.json()).tag_name.replace(/^v/, "");
+}
+
+// For repositories that tag releases without publishing GitHub releases.
+async function latestTag(repository: string): Promise<string> {
+  const refs = await git(
+    "ls-remote",
+    "--tags",
+    "--refs",
+    `https://github.com/${repository}.git`,
+  );
+  let latest: SemVer | undefined;
+  for (const line of refs.split("\n")) {
+    const tag = line.split("refs/tags/")[1];
+    const version = tag === undefined
+      ? undefined
+      : tryParse(tag.replace(/^v/, ""));
+    if (
+      version !== undefined && version.prerelease?.length === 0 &&
+      (latest === undefined || greaterThan(version, latest))
+    ) {
+      latest = version;
+    }
+  }
+  if (latest === undefined) {
+    throw new Error(`${repository} has no GitHub release and no semver tag`);
+  }
+  return format(latest);
 }
 
 async function sha256Of(url: string): Promise<string> {

@@ -18,7 +18,8 @@ bump is committed once its recipe built on all of its platforms; a recipe that
 failed anywhere is retried on the next run.
 
 A recipe's version comes from `extra.latest_version_url` when it sets one,
-otherwise from the release GitHub marks as latest for `about.repository`.
+otherwise from the release GitHub marks as latest for `about.repository`, or
+its highest stable tag when the repository publishes no releases.
 
 | Task | What it does |
 | --- | --- |
