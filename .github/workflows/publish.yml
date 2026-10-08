@@ -93,7 +93,42 @@ jobs:
           pattern: package-*
           path: output
       - uses: prefix-dev/setup-pixi@v0.10.2
-      - run: pixi run upload
+      - name: Diagnose prefix.dev authorization
+        run: |
+          claims() {
+            python3 -c 'import base64, json, sys
+          part = sys.argv[1].split(".")[1]
+          print(json.dumps(json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))), indent=1, sort_keys=True))' "$1"
+          }
+          oidc=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=prefix.dev" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["value"])')
+          echo "::add-mask::$oidc"
+          echo "== GitHub OIDC token claims"
+          claims "$oidc"
+
+          mint=$(curl -sS -w '\n%{http_code}' -X POST https://prefix.dev/api/oidc/mint_token \
+            -H 'Content-Type: application/json' -d "{\"token\":\"$oidc\"}")
+          mint_status=${mint##*$'\n'}
+          token=${mint%$'\n'*}
+          echo "== mint_token answered $mint_status"
+          if [ "$mint_status" != 200 ]; then
+            echo "$token"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "== minted token prefix: ${token%%.*}"
+          echo "== minted token claims"
+          claims "${token#pfx-jwt.}" || echo "minted token is not a JWT"
+
+          printf 'theedstow upload probe, not a conda package\n' > probe.conda
+          name=theedstow-upload-probe-0.0.0-0.conda
+          printf 'X-File-Name: %s\nX-File-SHA256: %s\n' "$name" "$(sha256sum probe.conda | cut -d' ' -f1)" > part-headers.txt
+          upload=$(curl -sS -w '\n%{http_code}' -X POST https://prefix.dev/api/v1/upload/theedstow \
+            -H "Authorization: Bearer $token" \
+            -F "file=@probe.conda;filename=$name;type=application/octet-stream;headers=@part-headers.txt")
+          echo "== probe upload without attestation answered ${upload##*$'\n'}: ${upload%$'\n'*}"
+      - run: pixi run upload -vvv
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
