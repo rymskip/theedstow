@@ -1,5 +1,5 @@
-// Lists the recipes a push or pull request changed since BASE_SHA. Without a
-// usable base, such as the first push of a branch, every recipe counts.
+// Lists the recipes a push changed since BASE_SHA. Without a usable base,
+// such as the first push of a branch, every recipe counts.
 import {
   git,
   maxRecipesPerRun,

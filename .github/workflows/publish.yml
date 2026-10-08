@@ -3,7 +3,6 @@ name: publish
 on:
   push:
     branches: [main]
-  pull_request:
   schedule:
     - cron: "37 6 * * *"
   workflow_dispatch:
@@ -33,10 +32,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - id: changed
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        if: github.event_name == 'push'
         run: pixi run changed
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.before }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: recipes
@@ -77,7 +76,7 @@ jobs:
     needs: [plan, build]
     if: >-
       always() && needs.plan.result == 'success' && needs.plan.outputs.recipes != '[]'
-      && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
