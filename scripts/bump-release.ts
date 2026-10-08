@@ -5,63 +5,24 @@ import { encodeHex } from "@std/encoding/hex";
 import { greaterThan, parse as parseVersion } from "@std/semver";
 import { z } from "zod";
 import {
-  maxRecipesPerRun,
+  type Build,
+  builds,
+  maxMatrixJobs,
   platforms,
   recipeNames,
   recipePath,
+  type RenderedRecipe,
+  renderPlatforms,
   setOutput,
 } from "./workspace.ts";
 
-const RenderedRecipe = z.object({
-  package: z.object({ name: z.string(), version: z.string() }),
-  source: z.array(z.object({ url: z.string(), sha256: z.string() })),
-  about: z.object({ repository: z.string() }),
-  extra: z.object({ latest_version_url: z.string().optional() }).optional(),
-});
-
-const RenderOutput = z.tuple([z.object({ recipe: RenderedRecipe })]);
-
 const Release = z.object({ tag_name: z.string() });
-
-type RenderedRecipe = z.infer<typeof RenderedRecipe>;
 
 interface Bump {
   recipe: string;
   name: string;
   version: string;
-}
-
-async function render(path: string, platform: string): Promise<RenderedRecipe> {
-  const { success, stdout } = await new Deno.Command("rattler-build", {
-    args: [
-      "build",
-      "--recipe",
-      path,
-      "--render-only",
-      "--target-platform",
-      platform,
-    ],
-    stdout: "piped",
-    stderr: "inherit",
-  }).output();
-  if (!success) {
-    throw new Error(`rendering ${path} for ${platform} failed`);
-  }
-  const [output] = RenderOutput.parse(
-    JSON.parse(new TextDecoder().decode(stdout)),
-  );
-  return output.recipe;
-}
-
-async function renderAll(
-  path: string,
-  targetPlatforms: string[],
-): Promise<RenderedRecipe[]> {
-  const recipes = [];
-  for (const platform of targetPlatforms) {
-    recipes.push(await render(path, platform));
-  }
-  return recipes;
+  builds: Build[];
 }
 
 function githubRepository(url: string): string {
@@ -124,13 +85,16 @@ function replaceSingleLine(
 
 async function bumpRecipe(
   recipe: string,
-  targetPlatforms: [string, ...string[]],
+  targetPlatforms: string[],
 ): Promise<Bump | undefined> {
   const path = recipePath(recipe);
-  const [firstPlatform, ...otherPlatforms] = targetPlatforms;
-  const first = await render(path, firstPlatform);
-  const { name, version: currentVersion } = first.package;
-  const nextVersion = await latestVersion(first);
+  const current = await renderPlatforms(path, targetPlatforms);
+  const [first] = current;
+  if (first === undefined) {
+    throw new Error(`${path} builds for none of ${targetPlatforms.join(", ")}`);
+  }
+  const { name, version: currentVersion } = first.recipe.package;
+  const nextVersion = await latestVersion(first.recipe);
 
   if (!greaterThan(parseVersion(nextVersion), parseVersion(currentVersion))) {
     console.log(
@@ -139,10 +103,9 @@ async function bumpRecipe(
     return undefined;
   }
 
-  const current = [first, ...await renderAll(path, otherPlatforms)];
   const urlChecksums = new Map<string, string>();
   const checksums = new Map<string, string>();
-  for (const rendered of current) {
+  for (const { recipe: rendered } of current) {
     for (const source of rendered.source) {
       const url = source.url.replaceAll(currentVersion, nextVersion);
       const next = urlChecksums.get(url) ?? await sha256Of(url);
@@ -177,7 +140,8 @@ async function bumpRecipe(
   }
   await Deno.writeTextFile(path, text);
 
-  for (const rendered of await renderAll(path, targetPlatforms)) {
+  const bumped = await renderPlatforms(path, targetPlatforms);
+  for (const { recipe: rendered } of bumped) {
     if (rendered.package.version !== nextVersion) {
       throw new Error(
         `${path} renders version ${rendered.package.version}, expected ${nextVersion}`,
@@ -193,19 +157,19 @@ async function bumpRecipe(
   }
 
   console.log(`bumped ${name} from ${currentVersion} to ${nextVersion}`);
-  return { recipe, name, version: nextVersion };
+  return { recipe, name, version: nextVersion, builds: builds(recipe, bumped) };
 }
 
 async function main(): Promise<void> {
   const targetPlatforms = await platforms();
-  const limit = maxRecipesPerRun(targetPlatforms.length);
   const bumped: Bump[] = [];
   const failed: string[] = [];
+  let planned = 0;
 
   for (const recipe of await recipeNames()) {
-    if (bumped.length === limit) {
+    if (planned + targetPlatforms.length > maxMatrixJobs) {
       console.log(
-        `${limit} recipes bumped, the most one build matrix holds: ${recipe} onwards waits for the next run`,
+        `${planned} builds planned, near the ${maxMatrixJobs} one build matrix holds: ${recipe} onwards waits for the next run`,
       );
       break;
     }
@@ -213,6 +177,7 @@ async function main(): Promise<void> {
       const bump = await bumpRecipe(recipe, targetPlatforms);
       if (bump !== undefined) {
         bumped.push(bump);
+        planned += bump.builds.length;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -223,8 +188,11 @@ async function main(): Promise<void> {
     }
   }
 
-  await setOutput("recipes", bumped.map((bump) => bump.recipe));
-  await setOutput("bumped", bumped);
+  await setOutput("builds", bumped.flatMap((bump) => bump.builds));
+  await setOutput(
+    "bumped",
+    bumped.map(({ recipe, name, version }) => ({ recipe, name, version })),
+  );
   await setOutput("failed", failed);
 }
 

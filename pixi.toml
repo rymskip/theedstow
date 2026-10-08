@@ -9,8 +9,8 @@ rattler-build = ">=0.76.1,<0.77"
 
 [tasks]
 bump = "deno run --allow-read --allow-write --allow-run=rattler-build --allow-net --allow-env=GITHUB_TOKEN,GITHUB_OUTPUT scripts/bump-release.ts"
-changed = "deno run --allow-read --allow-write --allow-run=git --allow-env=BASE_SHA,GITHUB_OUTPUT scripts/changed-recipes.ts"
-commit-bumps = "deno run --allow-read --allow-run=git --allow-env=BUMPED,GITHUB_REF_NAME scripts/commit-bumps.ts"
+changed = "deno run --allow-read --allow-write --allow-run=git,rattler-build --allow-env=BASE_SHA,GITHUB_OUTPUT scripts/changed-recipes.ts"
+commit-bumps = "deno run --allow-read --allow-run=git --allow-env=BUMPED,BUILDS,GITHUB_REF_NAME scripts/commit-bumps.ts"
 check = "deno check scripts && deno lint scripts && deno fmt --check scripts"
 upload = "rattler-build upload prefix --channel rymskip/theedstow --generate-attestation --skip-existing output/*/*.conda"
 

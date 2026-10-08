@@ -1,11 +1,14 @@
-// Lists the recipes a push changed since BASE_SHA. Without a usable base,
-// such as the first push of a branch, every recipe counts.
+// Plans builds for the recipes a push changed since BASE_SHA. Without a usable
+// base, such as the first push of a branch, every recipe counts.
 import {
+  builds,
   git,
-  maxRecipesPerRun,
+  maxMatrixJobs,
   platforms,
   recipeNames,
+  recipePath,
   recipesDir,
+  renderPlatforms,
   setOutput,
 } from "./workspace.ts";
 
@@ -36,14 +39,23 @@ async function changedRecipes(all: string[]): Promise<string[]> {
 
 async function main(): Promise<void> {
   const changed = await changedRecipes(await recipeNames());
-  const limit = maxRecipesPerRun((await platforms()).length);
-  if (changed.length > limit) {
-    throw new Error(
-      `${changed.length} recipes changed, one build matrix holds ${limit}: split the change`,
+  console.log(`changed recipes: ${changed.join(", ") || "none"}`);
+  const targetPlatforms = await platforms();
+  const planned = [];
+  for (const recipe of changed) {
+    planned.push(
+      ...builds(
+        recipe,
+        await renderPlatforms(recipePath(recipe), targetPlatforms),
+      ),
     );
   }
-  console.log(`changed recipes: ${changed.join(", ") || "none"}`);
-  await setOutput("recipes", changed);
+  if (planned.length > maxMatrixJobs) {
+    throw new Error(
+      `${planned.length} builds planned, one build matrix holds ${maxMatrixJobs}: split the change`,
+    );
+  }
+  await setOutput("builds", planned);
 }
 
 await main();

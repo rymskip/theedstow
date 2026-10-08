@@ -1,12 +1,15 @@
-// Commits the bumped recipes whose packages built on every platform. A recipe
-// that failed anywhere stays at its old version, so the next run retries it.
+// Commits the bumped recipes whose packages built on every planned platform. A
+// recipe that failed anywhere stays at its old version, so the next run retries
+// it.
 import { join } from "@std/path";
 import { z } from "zod";
-import { git, platforms, recipePath } from "./workspace.ts";
+import { Build, git, recipePath } from "./workspace.ts";
 
 const Bumped = z.array(
   z.object({ recipe: z.string(), name: z.string(), version: z.string() }),
 );
+
+const Builds = z.array(Build);
 
 async function built(recipe: string, platform: string): Promise<boolean> {
   try {
@@ -30,16 +33,20 @@ async function built(recipe: string, platform: string): Promise<boolean> {
 
 async function main(): Promise<void> {
   const bumped = Bumped.parse(JSON.parse(Deno.env.get("BUMPED") || "[]"));
+  const planned = Builds.parse(JSON.parse(Deno.env.get("BUILDS") || "[]"));
   const branch = Deno.env.get("GITHUB_REF_NAME");
   if (branch === undefined) {
     throw new Error("GITHUB_REF_NAME is not set");
   }
-  const targetPlatforms = await platforms();
 
   const complete = [];
   for (const bump of bumped) {
     const missing = [];
-    for (const platform of targetPlatforms) {
+    for (
+      const { platform } of planned.filter(({ recipe }) =>
+        recipe === bump.recipe
+      )
+    ) {
       if (!await built(bump.recipe, platform)) {
         missing.push(platform);
       }
@@ -56,7 +63,9 @@ async function main(): Promise<void> {
   }
 
   if (complete.length === 0) {
-    console.log("no bumped recipe built everywhere, nothing to commit");
+    console.log(
+      "no bumped recipe built on all its platforms, nothing to commit",
+    );
     return;
   }
   await git("add", ...complete.map((bump) => recipePath(bump.recipe)));
