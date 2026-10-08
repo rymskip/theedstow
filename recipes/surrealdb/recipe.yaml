@@ -35,6 +35,8 @@ source:
 
 build:
   number: ${{ build_number }}
+  dynamic_linking:
+    overlinking_behavior: error
   script:
     # The crate ships the release's LICENSE; `.crate` is not auto-extracted.
     - tar -xzf crate/surrealdb-${{ version }}.crate --strip-components 1 surrealdb-${{ version }}/LICENSE

@@ -13,6 +13,8 @@ source:
 
 build:
   number: ${{ build_number }}
+  dynamic_linking:
+    overlinking_behavior: error
   # XcodeGen drives Xcode project generation and only ships macOS binaries.
   skip: not osx
   script:
