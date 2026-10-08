@@ -37,7 +37,9 @@ build:
         - mkdir -p "$PREFIX/etc/conda/env_vars.d"
         - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/rustup.json"
       else:
-        - set "CARGO_HOME=%SRC_DIR%\.cargo-home"
+        # aws-lc's relative includes overflow MAX_PATH from a registry nested in
+        # the work directory, so the registry lives under the shorter %TEMP%.
+        - set "CARGO_HOME=%TEMP%\rustup-cargo-home"
         - for %%I in ("%SRC_DIR%\..") do set "GIT_CEILING_DIRECTORIES=%%~fI"
         # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
         - cargo update --package chacha20
