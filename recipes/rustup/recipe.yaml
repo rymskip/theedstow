@@ -6,11 +6,7 @@ context:
   proxies: >-
     rustc rustdoc cargo rust-lldb rust-gdb rust-gdbgui rls cargo-clippy
     clippy-driver cargo-miri rust-analyzer rustfmt cargo-fmt
-  # no-self-update leaves rustup's own updates to pixi, so `rustup update`
-  # never needs a self-installed rustup in CARGO_HOME.
-  cargo_install: >-
-    cargo install --locked --no-track --path .
-    --no-default-features --features no-self-update,reqwest-rustls-tls
+  cargo_install: cargo install --locked --no-track --path .
 
 package:
   name: rustup
@@ -31,7 +27,11 @@ build:
         - export GIT_CEILING_DIRECTORIES="$(dirname "$SRC_DIR")"
         # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
         - cargo update --package chacha20
-        - ${{ cargo_install }} --root "$PREFIX"
+        # no-self-update leaves rustup's own updates to pixi, so `rustup update`
+        # never needs a self-installed rustup in CARGO_HOME.
+        - >-
+          ${{ cargo_install }} --root "$PREFIX"
+          --no-default-features --features no-self-update,reqwest-rustls-tls
         - mv "$PREFIX/bin/rustup-init" "$PREFIX/bin/rustup"
         - for tool in ${{ proxies }}; do ln -s rustup "$PREFIX/bin/$tool"; done
         - mkdir -p "$PREFIX/etc/conda/env_vars.d"
@@ -43,7 +43,9 @@ build:
         - for %%I in ("%SRC_DIR%\..") do set "GIT_CEILING_DIRECTORIES=%%~fI"
         # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
         - cargo update --package chacha20
-        - ${{ cargo_install }} --root "%LIBRARY_PREFIX%"
+        # rustup's build script delay-loads bcrypt.dll and links with /WX, so
+        # Windows keeps the default backends, one of which imports it.
+        - ${{ cargo_install }} --root "%LIBRARY_PREFIX%" --features no-self-update
         - move "%LIBRARY_BIN%\rustup-init.exe" "%LIBRARY_BIN%\rustup.exe"
         # Windows packages cannot carry links, so each proxy is a copy.
         - >-
