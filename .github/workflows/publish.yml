@@ -1,0 +1,113 @@
+name: publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "37 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      recipes: ${{ steps.bump.outputs.recipes || steps.changed.outputs.recipes }}
+      bumped: ${{ steps.bump.outputs.bumped }}
+      failed: ${{ steps.bump.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: prefix-dev/setup-pixi@v0.10.2
+      - run: pixi run check
+      - id: bump
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: pixi run bump
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - id: changed
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        run: pixi run changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: recipes
+          path: recipes
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.recipes != '[]'
+    name: ${{ matrix.recipe }} (${{ matrix.target.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe: ${{ fromJSON(needs.plan.outputs.recipes) }}
+        target:
+          - { platform: linux-64, runner: ubuntu-24.04 }
+          - { platform: linux-aarch64, runner: ubuntu-24.04-arm }
+          - { platform: osx-64, runner: macos-15-intel }
+          - { platform: osx-arm64, runner: macos-15 }
+          - { platform: win-64, runner: windows-2025 }
+    runs-on: ${{ matrix.target.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: recipes
+          path: recipes
+      - uses: prefix-dev/setup-pixi@v0.10.2
+      - shell: bash
+        run: pixi run build "recipes/$RECIPE"
+        env:
+          RECIPE: ${{ matrix.recipe }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.recipe }}-${{ matrix.target.platform }}
+          path: output/${{ matrix.target.platform }}/*.conda
+
+  publish:
+    needs: [plan, build]
+    if: >-
+      always() && needs.plan.result == 'success' && needs.plan.outputs.recipes != '[]'
+      && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: recipes
+          path: recipes
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: package-*
+          path: output
+      - uses: prefix-dev/setup-pixi@v0.10.2
+      - run: pixi run upload
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - run: pixi run commit-bumps
+        env:
+          BUMPED: ${{ needs.plan.outputs.bumped }}
+
+  report:
+    needs: plan
+    if: needs.plan.outputs.failed != '' && needs.plan.outputs.failed != '[]'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "::error::could not bump $FAILED, see the plan job log"
+          exit 1
+        env:
+          FAILED: ${{ needs.plan.outputs.failed }}

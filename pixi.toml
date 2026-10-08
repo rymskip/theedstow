@@ -1,0 +1,19 @@
+[workspace]
+name = "theedstow"
+channels = ["conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+deno = ">=2.9.5,<3"
+rattler-build = ">=0.76.1,<0.77"
+
+[tasks]
+bump = "deno run --allow-read --allow-write --allow-run=rattler-build --allow-net --allow-env=GITHUB_TOKEN,GITHUB_OUTPUT scripts/bump-release.ts"
+changed = "deno run --allow-read --allow-write --allow-run=git --allow-env=BASE_SHA,GITHUB_OUTPUT scripts/changed-recipes.ts"
+commit-bumps = "deno run --allow-read --allow-run=git --allow-env=BUMPED,GITHUB_REF_NAME scripts/commit-bumps.ts"
+check = "deno check scripts && deno lint scripts && deno fmt --check scripts"
+upload = "rattler-build upload prefix --channel theedstow --generate-attestation --skip-existing output/*/*.conda"
+
+[tasks.build]
+args = [{ arg = "recipes", default = "recipes" }]
+cmd = "rattler-build build --recipe-dir {{ recipes }} --output-dir output"

@@ -1,0 +1,82 @@
+context:
+  version: "3.3.0"
+  build_number: 0
+  download_url: https://download.surrealdb.com/v${{ version }}
+
+package:
+  name: surrealdb
+  version: ${{ version }}
+
+source:
+  - if: target_platform == "linux-64"
+    then:
+      url: ${{ download_url }}/surreal-v${{ version }}.linux-amd64.tgz
+      sha256: 44aeab565f7e7e39d2d0bf0583c8aae648babc91373c70b2658288d95bbbcd55
+  - if: target_platform == "linux-aarch64"
+    then:
+      url: ${{ download_url }}/surreal-v${{ version }}.linux-arm64.tgz
+      sha256: f03356497f875057126641f06757671542e0a7b75f18fd13820c2dab29349d74
+  - if: target_platform == "osx-64"
+    then:
+      url: ${{ download_url }}/surreal-v${{ version }}.darwin-amd64.tgz
+      sha256: c8e560d37c9f6f04b95f22791723122b5579f1fa5ac5102d6d82c36e38b72710
+  - if: target_platform == "osx-arm64"
+    then:
+      url: ${{ download_url }}/surreal-v${{ version }}.darwin-arm64.tgz
+      sha256: 75e37adf5f9aacfa1308df71193b2d0e0727bc6532105541c083e71271cd7fc9
+  - if: target_platform == "win-64"
+    then:
+      url: ${{ download_url }}/surreal-v${{ version }}.windows-amd64.exe
+      sha256: 3e5e9d363a352be81f5a983d53f0bc0cd77a90e305f01e2fed929987cf79735c
+      file_name: surreal.exe
+  - url: https://static.crates.io/crates/surrealdb/surrealdb-${{ version }}.crate
+    sha256: f04b42991e6a01e2d01f1ea6183714cf364d3c40fa2197bd8993ec7834e0b4c4
+    target_directory: crate
+
+build:
+  number: ${{ build_number }}
+  script:
+    # The crate ships the release's LICENSE; `.crate` is not auto-extracted.
+    - tar -xzf crate/surrealdb-${{ version }}.crate --strip-components 1 surrealdb-${{ version }}/LICENSE
+    - if: unix
+      then:
+        - mkdir -p "$PREFIX/bin"
+        - install -m 755 surreal "$PREFIX/bin/surreal"
+      else:
+        - if not exist "%LIBRARY_BIN%" mkdir "%LIBRARY_BIN%"
+        - copy surreal.exe "%LIBRARY_BIN%\surreal.exe"
+
+requirements:
+  run:
+    - if: linux
+      then:
+        - __glibc >=2.34
+        - libgcc
+        - libstdcxx
+    - if: osx and x86_64
+      then: __osx >=10.12
+    - if: osx and arm64
+      then: __osx >=11.0
+
+tests:
+  - package_contents:
+      bin:
+        - surreal
+  - script:
+      - if: unix
+        then: surreal version | grep -Eq "^${{ version | replace('.', '\\.') }}[+ ]"
+        else: surreal version | findstr /r /b /c:"${{ version | replace('.', '\\.') }}[+ ]"
+
+about:
+  homepage: https://surrealdb.com
+  repository: https://github.com/surrealdb/surrealdb
+  documentation: https://surrealdb.com/docs
+  license: BUSL-1.1
+  license_file: LICENSE
+  summary: A scalable, distributed, collaborative, document-graph database for the realtime web.
+  description: |
+    The `surreal` server and command-line tool, repackaged from the official
+    SurrealDB release binaries.
+
+extra:
+  latest_version_url: https://download.surrealdb.com/latest.txt
