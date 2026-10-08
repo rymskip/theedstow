@@ -37,6 +37,11 @@ build:
   number: ${{ build_number }}
   dynamic_linking:
     overlinking_behavior: error
+    # OS-provided, but only recognised as system libraries when a sysroot is in
+    # the build environment: glibc's loader and Windows API sets.
+    missing_dso_allowlist:
+      - ld-linux-*.so.*
+      - api-ms-win-core-*.dll
   script:
     # The crate ships the release's LICENSE; `.crate` is not auto-extracted.
     - tar -xzf crate/surrealdb-${{ version }}.crate --strip-components 1 surrealdb-${{ version }}/LICENSE
