@@ -1,0 +1,94 @@
+context:
+  version: "1.29.1"
+  build_number: 0
+  # rustup acts as whichever tool it is invoked as; these are its TOOLS and
+  # DUP_TOOLS proxies.
+  proxies: >-
+    rustc rustdoc cargo rust-lldb rust-gdb rust-gdbgui rls cargo-clippy
+    clippy-driver cargo-miri rust-analyzer rustfmt cargo-fmt
+  # no-self-update leaves rustup's own updates to pixi, so `rustup update`
+  # never needs a self-installed rustup in CARGO_HOME.
+  cargo_install: >-
+    cargo install --locked --no-track --path .
+    --no-default-features --features no-self-update,reqwest-rustls-tls
+
+package:
+  name: rustup
+  version: ${{ version }}
+
+source:
+  url: https://github.com/rust-lang/rustup/archive/refs/tags/${{ version }}.tar.gz
+  sha256: 00f79a02275fd0252be6928d7a44f96bfba706a0cc47a0c85557aa4a875d1181
+
+build:
+  number: ${{ build_number }}
+  script:
+    # git-testament stamps the version from git; keep it out of the enclosing
+    # checkout the work directory lives in.
+    - if: unix
+      then:
+        - export CARGO_HOME="$SRC_DIR/.cargo-home"
+        - export GIT_CEILING_DIRECTORIES="$(dirname "$SRC_DIR")"
+        # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
+        - cargo update --package chacha20
+        - ${{ cargo_install }} --root "$PREFIX"
+        - mv "$PREFIX/bin/rustup-init" "$PREFIX/bin/rustup"
+        - for tool in ${{ proxies }}; do ln -s rustup "$PREFIX/bin/$tool"; done
+        - mkdir -p "$PREFIX/etc/conda/env_vars.d"
+        - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/rustup.json"
+      else:
+        - set "CARGO_HOME=%SRC_DIR%\.cargo-home"
+        - for %%I in ("%SRC_DIR%\..") do set "GIT_CEILING_DIRECTORIES=%%~fI"
+        # rustup 1.29.1 locks chacha20 0.10.1, which crates.io has since yanked.
+        - cargo update --package chacha20
+        - ${{ cargo_install }} --root "%LIBRARY_PREFIX%"
+        - move "%LIBRARY_BIN%\rustup-init.exe" "%LIBRARY_BIN%\rustup.exe"
+        # Windows packages cannot carry links, so each proxy is a copy.
+        - >-
+          for %%T in (${{ proxies }}) do
+          (copy /b "%LIBRARY_BIN%\rustup.exe" "%LIBRARY_BIN%\%%T.exe" || exit 1)
+        - if not exist "%PREFIX%\etc\conda\env_vars.d" mkdir "%PREFIX%\etc\conda\env_vars.d"
+        - copy "%RECIPE_DIR%\env_vars.json" "%PREFIX%\etc\conda\env_vars.d\rustup.json"
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('rust') }}
+    - ${{ stdlib('c') }}
+
+tests:
+  - package_contents:
+      bin:
+        - rustup
+        - cargo
+        - rustc
+        - rust-analyzer
+      files:
+        - etc/conda/env_vars.d/rustup.json
+  - script:
+      - if: unix
+        then:
+          - rustup --version | grep -Eq "^rustup ${{ version | replace('.', '\\.') }}( |$)"
+          - self_update=$(rustup self update 2>&1 || true)
+          - echo "$self_update" | grep -q "self-update is disabled for this build of rustup"
+          - proxy=$(RUSTUP_HOME="$(mktemp -d)" rustc --version 2>&1 || true)
+          - echo "$proxy" | grep -q "rustup could not choose a version of rustc"
+        else:
+          - rustup --version | findstr /r /b /c:"rustup ${{ version | replace('.', '\\.') }}\>"
+          - rustup self update 2>&1 | findstr /c:"self-update is disabled for this build of rustup"
+          - set "RUSTUP_HOME=%TEMP%\rustup-proxy-test"
+          - rustc --version 2>&1 | findstr /c:"rustup could not choose a version of rustc"
+
+about:
+  homepage: https://rustup.rs
+  repository: https://github.com/rust-lang/rustup
+  documentation: https://rust-lang.github.io/rustup/
+  license: MIT OR Apache-2.0
+  license_file:
+    - LICENSE-MIT
+    - LICENSE-APACHE
+  summary: The Rust toolchain installer, with its toolchain proxies and self-update left to pixi
+  description: |
+    rustup built with the no-self-update feature, shipping the cargo, rustc and
+    other toolchain proxies alongside it. RUSTUP_HOME points into the
+    environment, so `pixi global install rustup` needs no further setup.
