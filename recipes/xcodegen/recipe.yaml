@@ -1,0 +1,47 @@
+context:
+  version: "2.46.0"
+  build_number: 0
+
+package:
+  name: xcodegen
+  version: ${{ version }}
+
+source:
+  # Single universal (x86_64 + arm64) release archive covers both macOS subdirs.
+  - url: https://github.com/yonaskolb/XcodeGen/releases/download/${{ version }}/xcodegen.zip
+    sha256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+
+build:
+  number: ${{ build_number }}
+  # XcodeGen drives Xcode project generation and only ships macOS binaries.
+  skip: not osx
+  script:
+    - mkdir -p $PREFIX/bin $PREFIX/share/xcodegen
+    - install -m 755 bin/xcodegen $PREFIX/bin/xcodegen
+    - cp -R share/xcodegen/SettingPresets $PREFIX/share/xcodegen/
+
+tests:
+  - package_contents:
+      bin:
+        - xcodegen
+      files:
+        - share/xcodegen/SettingPresets/base.yml
+        - share/xcodegen/SettingPresets/Platforms/iOS.yml
+  - script:
+      - xcodegen --version
+
+about:
+  homepage: https://github.com/yonaskolb/XcodeGen
+  repository: https://github.com/yonaskolb/XcodeGen
+  documentation: https://github.com/yonaskolb/XcodeGen/blob/master/Docs/ProjectSpec.md
+  license: MIT
+  license_file: LICENSE
+  summary: A command line tool that generates Xcode projects from a YAML or JSON project spec
+  description: |
+    XcodeGen is a command line tool that generates your Xcode project using your
+    folder structure and a project spec. The project spec is a YAML or JSON file
+    describing your targets, configurations, schemes, custom build settings and
+    many other options. All your source directories are automatically parsed and
+    referenced appropriately while preserving your folder structure. Xcode
+    projects can then be removed from source control, which removes merge
+    conflicts and makes it easy to add or remove files.
