@@ -1,6 +1,6 @@
 context:
-  version: "3.3.2"
-  build_number: 1
+  version: "3.3.3"
+  build_number: 0
   download_url: https://download.surrealdb.com/v${{ version }}
 
 package:
@@ -11,26 +11,26 @@ source:
   - if: target_platform == "linux-64"
     then:
       url: ${{ download_url }}/surreal-v${{ version }}.linux-amd64.tgz
-      sha256: b096ae9a8e4bd28aa3195f5fc4c037b0ec3d956698ede3523a53a6ef1ab54414
+      sha256: 8e40c516024ca40933d2fc0a7981095a9b140474da66082a9d9f5dab7e0bac99
   - if: target_platform == "linux-aarch64"
     then:
       url: ${{ download_url }}/surreal-v${{ version }}.linux-arm64.tgz
-      sha256: 90c713fc99226a032ce23086fb4866c2970cf8651f95ba9d110717bf1b500099
+      sha256: 926d1c1ed6aa8d61c2b5d1a4c34231db5bb9d9deba9b385dda45caef86bb1601
   - if: target_platform == "osx-64"
     then:
       url: ${{ download_url }}/surreal-v${{ version }}.darwin-amd64.tgz
-      sha256: 659d42f77da169420b077db03ff881e1fb32c89bd5f172c04d3505311754e0c1
+      sha256: 2eb40261eae4ab0223fff3260b44fc809073715f97b7ff531714c3db479ca3a2
   - if: target_platform == "osx-arm64"
     then:
       url: ${{ download_url }}/surreal-v${{ version }}.darwin-arm64.tgz
-      sha256: 9bee48cdf6aa4bbfdb072e686151a4d9c4f0f0c4d2a74f15f8c4ff8656e5cc08
+      sha256: e5151d7a03bf9cb0acd4773c81846305c8a617049b47c1f5a8f69582ac49f962
   - if: target_platform == "win-64"
     then:
       url: ${{ download_url }}/surreal-v${{ version }}.windows-amd64.exe
-      sha256: 11cce58912e988b9f9cb1342cdbd70597ae18ec7f27a467990d749d00d5bafb9
+      sha256: 613e6c4810c4a980f1b1677f23673c312b6ab3ef4809b4dd62c9c3b5ff0b8af4
       file_name: surreal.exe
   - url: https://static.crates.io/crates/surrealdb/surrealdb-${{ version }}.crate
-    sha256: 4c046d672bbc68f47cd8c4a6e34281d4b358ff3c461515c3b1408068a2c4db72
+    sha256: 029e59d64d0d96cd0d645965f47ba6c40603b9dbb5fb7cdef0460aa49719cece
     target_directory: crate
 
 build:
