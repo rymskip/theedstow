@@ -1,6 +1,6 @@
 context:
-  version: "1.29.1"
-  build_number: 1
+  version: "1.29.2"
+  build_number: 0
   # rustup acts as whichever tool it is invoked as; these are its TOOLS and
   # DUP_TOOLS proxies.
   proxies: >-
@@ -14,7 +14,7 @@ package:
 
 source:
   url: https://github.com/rust-lang/rustup/archive/refs/tags/${{ version }}.tar.gz
-  sha256: 00f79a02275fd0252be6928d7a44f96bfba706a0cc47a0c85557aa4a875d1181
+  sha256: ba43980f0651730631174635a0e7764831e810be08a06ae53f9c0620caef019d
 
 build:
   number: ${{ build_number }}
