@@ -1,0 +1,88 @@
+context:
+  version: "1.2.0"
+  build_number: 0
+  download_url: https://download.swift.org/swiftly
+  proxies: swift swiftc sourcekit-lsp
+
+package:
+  name: swiftly
+  version: ${{ version }}
+
+source:
+  - if: target_platform == "linux-64"
+    then:
+      url: ${{ download_url }}/linux/swiftly-${{ version }}-x86_64.tar.gz
+      sha256: 0b26b568811404374c7d7f07276b6aad4145db5d1893a45f307de6a94ca8d9c3
+  - if: target_platform == "linux-aarch64"
+    then:
+      url: ${{ download_url }}/linux/swiftly-${{ version }}-aarch64.tar.gz
+      sha256: 590d855e03807791f1b84aab77471bf7e31f9e3b22151972526077da296ecf96
+  # One universal (x86_64 + arm64) installer package covers both macOS subdirs.
+  - if: osx
+    then:
+      url: ${{ download_url }}/darwin/swiftly-${{ version }}.pkg
+      sha256: a1b48692b00ea6902957423473c87bee7c7f3e18c015a4a09317102f6820b987
+      file_name: swiftly.pkg
+
+build:
+  number: ${{ build_number }}
+  dynamic_linking:
+    overlinking_behavior: error
+  # swiftly only ships Linux and macOS binaries.
+  skip: win
+  script:
+    - if: osx
+      then:
+        - pkgutil --expand-full swiftly.pkg pkg
+        - >-
+          mv pkg/swiftly-${{ version }}.pkg/Payload/bin/swiftly
+          pkg/swiftly-${{ version }}.pkg/Payload/share/doc/swiftly/license/LICENSE.txt .
+    - mkdir -p "$PREFIX/bin" "$PREFIX/libexec/swiftly" "$PREFIX/etc/conda/env_vars.d"
+    - install -m 755 swiftly "$PREFIX/libexec/swiftly/swiftly"
+    # swiftly treats a symlinked binary as package managed: `swiftly init` leaves
+    # it in place rather than moving it into SWIFTLY_BIN_DIR, and self-update is
+    # left to pixi.
+    - ln -s ../libexec/swiftly/swiftly "$PREFIX/bin/swiftly"
+    # swiftly acts as whichever toolchain tool it is invoked as. It links proxies
+    # into SWIFTLY_BIN_DIR itself, but that directory is not on PATH.
+    - for tool in ${{ proxies }}; do ln -s swiftly "$PREFIX/bin/$tool"; done
+    - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
+
+requirements:
+  run:
+    - if: osx
+      then: __osx >=13.0
+
+tests:
+  - package_contents:
+      bin:
+        - swiftly
+        - swift
+        - swiftc
+        - sourcekit-lsp
+      files:
+        - libexec/swiftly/swiftly
+        - etc/conda/env_vars.d/swiftly.json
+  - script:
+      - swiftly init --assume-yes --no-modify-profile --skip-install
+      - test -f "$CONDA_PREFIX/.swiftly/config.json"
+      - test ! -e "$SWIFTLY_BIN_DIR/swiftly"
+      - swiftly --version | grep -Eq "^${{ version | replace('.', '\\.') }}$"
+      - self_update=$(swiftly self-update 2>&1 || true)
+      - echo "$self_update" | grep -q "swiftly has been installed externally"
+      - proxy=$(swift --version 2>&1 || true)
+      - echo "$proxy" | grep -q "No installed swift toolchain is selected"
+
+about:
+  homepage: https://swift.org/swiftly
+  repository: https://github.com/swiftlang/swiftly
+  documentation: https://swiftpackageindex.com/swiftlang/swiftly/main/documentation/swiftlydocs
+  license: Apache-2.0
+  license_file: LICENSE.txt
+  summary: The Swift toolchain installer and manager, with self-update left to pixi
+  description: |
+    swiftly repackaged from the official release binaries, shipping the swift,
+    swiftc and sourcekit-lsp proxies alongside it. Its home and toolchains live
+    in the environment: run `swiftly init --no-modify-profile` once to create
+    its configuration and install the latest Swift toolchain. On macOS this
+    needs the Command Line Tools in /Library/Developer/CommandLineTools.

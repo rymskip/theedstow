@@ -1,0 +1,5 @@
+{
+  "SWIFTLY_HOME_DIR": "${CONDA_PREFIX}/.swiftly",
+  "SWIFTLY_BIN_DIR": "${CONDA_PREFIX}/.swiftly/bin",
+  "SWIFTLY_TOOLCHAINS_DIR": "${CONDA_PREFIX}/.swiftly/toolchains"
+}
