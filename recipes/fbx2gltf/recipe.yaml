@@ -53,7 +53,9 @@ requirements:
         - libgcc
         - libstdcxx
     - if: win
-      then: vc14_runtime
+      then:
+        - ucrt
+        - vc14_runtime
   run:
     - if: linux
       then:
@@ -62,7 +64,9 @@ requirements:
     - if: osx
       then: __osx >=11.0
     - if: win
-      then: vc14_runtime
+      then:
+        - ucrt
+        - vc14_runtime
 
 tests:
   - package_contents:
