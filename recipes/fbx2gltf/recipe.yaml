@@ -1,0 +1,98 @@
+context:
+  version: "0.13.1"
+  build_number: 0
+  asset: FBX2glTF-${{ "linux" if linux else "macos" if osx else "windows" }}-x86_64
+
+package:
+  name: fbx2gltf
+  version: ${{ version }}
+
+source:
+  - if: linux
+    then:
+      url: https://github.com/godotengine/FBX2glTF/releases/download/v${{ version }}/${{ asset }}.zip
+      sha256: 52243ec1bf25c4501bdd4977057b6782702fe3ae1b79e2ac13039d2207870bec
+  - if: osx
+    then:
+      url: https://github.com/godotengine/FBX2glTF/releases/download/v${{ version }}/${{ asset }}.zip
+      sha256: 863bd62a3d289218b19642b39b1170411df3f0448370a809ed47f1e386b77ac5
+  - if: win
+    then:
+      url: https://github.com/godotengine/FBX2glTF/releases/download/v${{ version }}/${{ asset }}.zip
+      sha256: effef95553afd4951e92c7330c0ab3152974544d30a7fc8e46c4d57d4332f378
+  # A small binary FBX for the conversion test.
+  - url: https://raw.githubusercontent.com/assimp/assimp/036783a2ac802efd5e4230f5c36da225004c67cd/test/models/FBX/box.fbx
+    sha256: ad2d79fe89d4d646bc7930dc952eb28e69976a321b387bf7851ecd3f37e667f8
+    target_directory: test
+
+build:
+  number: ${{ build_number }}
+  dynamic_linking:
+    overlinking_behavior: error
+  # Upstream only ships x86_64 binaries.
+  skip: not x86_64
+  script:
+    - if: unix
+      then:
+        - mkdir -p "$PREFIX/bin"
+        - install -m 755 ${{ asset }} "$PREFIX/bin/FBX2glTF"
+      else:
+        - if not exist "%LIBRARY_BIN%" mkdir "%LIBRARY_BIN%"
+        - copy ${{ asset }}.exe "%LIBRARY_BIN%\FBX2glTF.exe"
+
+requirements:
+  # The sysroot tells the linking check which libraries glibc provides, and
+  # exports the __glibc floor the upstream binary needs.
+  build:
+    - if: linux
+      then: ${{ stdlib('c') }}
+  # The linking check matches other libraries only against host packages.
+  host:
+    - if: linux
+      then:
+        - libgcc
+        - libstdcxx
+    - if: win
+      then: vc14_runtime
+  run:
+    - if: linux
+      then:
+        - libgcc
+        - libstdcxx
+    - if: osx
+      then: __osx >=11.0
+    - if: win
+      then: vc14_runtime
+
+tests:
+  - package_contents:
+      bin:
+        - FBX2glTF
+  - files:
+      source:
+        - test/box.fbx
+    script:
+      - if: unix
+        then:
+          - FBX2glTF --version | grep -q "^FBX2glTF version ${{ version | replace('.', '\\.') }}$"
+          - FBX2glTF --binary --input test/box.fbx --output box
+          - head -c 4 box.glb | grep -q glTF
+        else:
+          - FBX2glTF --version | findstr /r /b /c:"FBX2glTF version ${{ version | replace('.', '\\.') }}$"
+          - FBX2glTF --binary --input test\box.fbx --output box
+          - findstr /b /c:"glTF" box.glb
+
+about:
+  homepage: https://github.com/godotengine/FBX2glTF
+  repository: https://github.com/godotengine/FBX2glTF
+  license: BSD-3-Clause AND LicenseRef-Autodesk-FBX-SDK
+  license_file:
+    - FBX2glTF-License.txt
+    - if: linux
+      then: FBX-SDK-License.txt
+      else: FBX-SDK-License.rtf
+  summary: A command-line tool that converts FBX models to glTF 2.0
+  description: |
+    The Godot Engine fork of FBX2glTF, repackaged from its release binaries,
+    which link the Autodesk FBX SDK. Converts FBX models to glTF 2.0 as
+    separate .gltf and .bin files or a single binary .glb.

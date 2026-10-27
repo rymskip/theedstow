@@ -1,0 +1,7 @@
+c_stdlib:
+  - if: linux
+    then: sysroot
+# The upstream binary needs glibc 2.29, which no older sysroot provides.
+c_stdlib_version:
+  - if: linux
+    then: "2.34"
