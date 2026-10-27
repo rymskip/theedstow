@@ -1,6 +1,6 @@
 context:
   version: "1.2.0"
-  build_number: 1
+  build_number: 2
   download_url: https://download.swift.org/swiftly
   proxies: swift swiftc sourcekit-lsp
 
@@ -37,7 +37,7 @@ build:
         - >-
           mv pkg/swiftly-${{ version }}.pkg/Payload/bin/swiftly
           pkg/swiftly-${{ version }}.pkg/Payload/share/doc/swiftly/license/LICENSE.txt .
-    - mkdir -p "$PREFIX/bin" "$PREFIX/libexec/swiftly" "$PREFIX/etc/conda/env_vars.d"
+    - mkdir -p "$PREFIX/bin" "$PREFIX/libexec/swiftly"
     - install -m 755 swiftly "$PREFIX/libexec/swiftly/swiftly"
     # swiftly treats a symlinked binary as package managed: `swiftly init` leaves
     # it in place rather than moving it into SWIFTLY_BIN_DIR, and self-update is
@@ -46,13 +46,14 @@ build:
     # swiftly acts as whichever toolchain tool it is invoked as. It links proxies
     # into SWIFTLY_BIN_DIR itself, but that directory is not on PATH.
     - for tool in ${{ proxies }}; do ln -s swiftly "$PREFIX/bin/$tool"; done
-    # On macOS toolchains stay in ~/Library/Developer/Toolchains: anywhere else swiftly stands
-    # in a DEVELOPER_DIR of its own, holding no developer tools, which Swift Build cannot find
-    # bitcode_strip and the frameworks in, so `swift test` fails.
-    - if: osx
+    # On Linux swiftly's home and toolchains live in the environment. On macOS they stay where
+    # swiftly puts them, ~/.swiftly and ~/Library/Developer/Toolchains: toolchains anywhere else
+    # make swiftly stand in a DEVELOPER_DIR of its own, holding no developer tools, in which
+    # Swift Build finds no bitcode_strip, and a home in the environment would forget them each
+    # time the environment is made again.
+    - if: linux
       then:
-        - cp "$RECIPE_DIR/env_vars.osx.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
-      else:
+        - mkdir -p "$PREFIX/etc/conda/env_vars.d"
         - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
 
 requirements:
@@ -69,13 +70,18 @@ tests:
         - sourcekit-lsp
       files:
         - libexec/swiftly/swiftly
-        - etc/conda/env_vars.d/swiftly.json
+        - if: linux
+          then: etc/conda/env_vars.d/swiftly.json
   - script:
-      - swiftly init --assume-yes --no-modify-profile --skip-install
-      - test -f "$CONDA_PREFIX/.swiftly/config.json"
+      # On macOS the package leaves swiftly's home the user's, which swiftly finds from the
+      # account and not from HOME, so the test names one of its own.
       - if: osx
         then:
-          - test -z "${SWIFTLY_TOOLCHAINS_DIR:-}"
+          - test -z "${SWIFTLY_HOME_DIR:-}${SWIFTLY_BIN_DIR:-}${SWIFTLY_TOOLCHAINS_DIR:-}"
+          - export SWIFTLY_HOME_DIR="$(mktemp -d)/.swiftly"
+          - export SWIFTLY_BIN_DIR="$SWIFTLY_HOME_DIR/bin"
+      - swiftly init --assume-yes --no-modify-profile --skip-install
+      - test -f "$SWIFTLY_HOME_DIR/config.json"
       - test ! -e "$SWIFTLY_BIN_DIR/swiftly"
       - swiftly --version | grep -Eq "^${{ version | replace('.', '\\.') }}$"
       - self_update=$(swiftly self-update 2>&1 || true)
@@ -92,9 +98,9 @@ about:
   summary: The Swift toolchain installer and manager, with self-update left to pixi
   description: |
     swiftly repackaged from the official release binaries, shipping the swift,
-    swiftc and sourcekit-lsp proxies alongside it. Its home lives in the
-    environment: run `swiftly init --no-modify-profile` once to create its
-    configuration and install the latest Swift toolchain. Toolchains live in the
-    environment on Linux, and on macOS in ~/Library/Developer/Toolchains, the
-    only place Xcode's tools and Swift Build find them, where removing the
-    package leaves them.
+    swiftc and sourcekit-lsp proxies alongside it. Run
+    `swiftly init --no-modify-profile` once to create its configuration and
+    install the latest Swift toolchain. On Linux its home and toolchains live in
+    the environment; on macOS in ~/.swiftly and ~/Library/Developer/Toolchains,
+    the only place Xcode's tools and Swift Build find them, which removing or
+    reinstalling the package leaves as they are.
