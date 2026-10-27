@@ -1,6 +1,6 @@
 context:
   version: "1.2.0"
-  build_number: 0
+  build_number: 1
   download_url: https://download.swift.org/swiftly
   proxies: swift swiftc sourcekit-lsp
 
@@ -46,7 +46,14 @@ build:
     # swiftly acts as whichever toolchain tool it is invoked as. It links proxies
     # into SWIFTLY_BIN_DIR itself, but that directory is not on PATH.
     - for tool in ${{ proxies }}; do ln -s swiftly "$PREFIX/bin/$tool"; done
-    - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
+    # On macOS toolchains stay in ~/Library/Developer/Toolchains: anywhere else swiftly stands
+    # in a DEVELOPER_DIR of its own, holding no developer tools, which Swift Build cannot find
+    # bitcode_strip and the frameworks in, so `swift test` fails.
+    - if: osx
+      then:
+        - cp "$RECIPE_DIR/env_vars.osx.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
+      else:
+        - cp "$RECIPE_DIR/env_vars.json" "$PREFIX/etc/conda/env_vars.d/swiftly.json"
 
 requirements:
   run:
@@ -66,6 +73,9 @@ tests:
   - script:
       - swiftly init --assume-yes --no-modify-profile --skip-install
       - test -f "$CONDA_PREFIX/.swiftly/config.json"
+      - if: osx
+        then:
+          - test -z "${SWIFTLY_TOOLCHAINS_DIR:-}"
       - test ! -e "$SWIFTLY_BIN_DIR/swiftly"
       - swiftly --version | grep -Eq "^${{ version | replace('.', '\\.') }}$"
       - self_update=$(swiftly self-update 2>&1 || true)
@@ -82,7 +92,9 @@ about:
   summary: The Swift toolchain installer and manager, with self-update left to pixi
   description: |
     swiftly repackaged from the official release binaries, shipping the swift,
-    swiftc and sourcekit-lsp proxies alongside it. Its home and toolchains live
-    in the environment: run `swiftly init --no-modify-profile` once to create
-    its configuration and install the latest Swift toolchain. On macOS this
-    needs the Command Line Tools in /Library/Developer/CommandLineTools.
+    swiftc and sourcekit-lsp proxies alongside it. Its home lives in the
+    environment: run `swiftly init --no-modify-profile` once to create its
+    configuration and install the latest Swift toolchain. Toolchains live in the
+    environment on Linux, and on macOS in ~/Library/Developer/Toolchains, the
+    only place Xcode's tools and Swift Build find them, where removing the
+    package leaves them.
