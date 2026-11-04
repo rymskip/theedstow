@@ -10,6 +10,16 @@ channels = ["conda-forge", "https://prefix.dev/rymskip/theedstow"]
 surrealdb = "*"
 ```
 
+To install globally, list conda-forge too. `--channel` replaces pixi's default
+channel, and the Linux packages depend on its `libgcc` and `libstdcxx`.
+
+```sh
+pixi global install --channel conda-forge --channel https://prefix.dev/rymskip/theedstow surrealdb
+```
+
+Pin a version as one spec, such as `"surrealdb==3.3.4"`. A separate `3.3.4`
+argument is read as another package.
+
 A daily workflow checks every recipe for a new upstream release and bumps it.
 Only bumped recipes, or on a push the recipes it changed, get built and tested
 natively on each platform the recipe does not skip with `build.skip`, then
