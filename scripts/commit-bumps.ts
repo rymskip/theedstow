@@ -40,6 +40,7 @@ async function main(): Promise<void> {
   }
 
   const complete = [];
+  const incomplete = [];
   for (const bump of bumped) {
     const missing = [];
     for (
@@ -57,9 +58,20 @@ async function main(): Promise<void> {
           missing.join(", ")
         }`,
       );
+      incomplete.push(bump);
       continue;
     }
     complete.push(bump);
+  }
+
+  // The checkout holds every planned bump, so a skipped recipe left modified
+  // would make the rebase below refuse the dirty tree.
+  if (incomplete.length > 0) {
+    await git(
+      "restore",
+      "--",
+      ...incomplete.map((bump) => recipePath(bump.recipe)),
+    );
   }
 
   if (complete.length === 0) {
