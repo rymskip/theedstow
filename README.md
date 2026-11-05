@@ -29,7 +29,10 @@ failed anywhere is retried on the next run.
 
 A recipe's version comes from `extra.latest_version_url` when it sets one,
 otherwise from the release GitHub marks as latest for `about.repository`, or
-its highest stable tag when the repository publishes no releases.
+its highest stable tag when the repository publishes no releases. A page at
+`extra.latest_version_url` that is more than the bare version takes an
+`extra.latest_version_pattern`, whose first capture group is the version. Tags
+lose a leading `v`, or `extra.tag_prefix` when the recipe sets one.
 
 | Task | What it does |
 | --- | --- |

@@ -1,6 +1,8 @@
 // Moves each recipe under recipes/ to its latest upstream version: the one at
-// extra.latest_version_url, or else the release GitHub marks as latest for
-// about.repository, or else its highest stable tag. Only ever moves forward.
+// extra.latest_version_url (matched against extra.latest_version_pattern when
+// set), or else the release GitHub marks as latest for about.repository, or
+// else its highest stable tag, with extra.tag_prefix stripped from tags. Only
+// ever moves forward.
 import { encodeHex } from "@std/encoding/hex";
 import {
   format,
@@ -50,12 +52,36 @@ async function fetchOk(url: string, init?: RequestInit): Promise<Response> {
   return response;
 }
 
+// Upstream versions such as potrace's 1.16 have no patch component.
+function comparableVersion(version: string): SemVer {
+  return parseVersion(/^\d+\.\d+$/.test(version) ? `${version}.0` : version);
+}
+
+function stripTagPrefix(tag: string, prefix: string | undefined): string {
+  if (prefix === undefined) {
+    return tag.replace(/^v/, "");
+  }
+  if (!tag.startsWith(prefix)) {
+    throw new Error(`tag ${tag} does not start with ${prefix}`);
+  }
+  return tag.slice(prefix.length);
+}
+
 async function latestVersion(recipe: RenderedRecipe): Promise<string> {
   const versionUrl = recipe.extra?.latest_version_url;
   if (versionUrl !== undefined) {
     const text = await (await fetchOk(versionUrl)).text();
-    return text.trim().replace(/^v/, "");
+    const pattern = recipe.extra?.latest_version_pattern;
+    if (pattern === undefined) {
+      return text.trim().replace(/^v/, "");
+    }
+    const version = text.match(new RegExp(pattern))?.[1];
+    if (version === undefined) {
+      throw new Error(`${versionUrl} has no match for ${pattern}`);
+    }
+    return version;
   }
+  const tagPrefix = recipe.extra?.tag_prefix;
   const headers = new Headers({ Accept: "application/vnd.github+json" });
   const token = Deno.env.get("GITHUB_TOKEN");
   if (token) {
@@ -66,18 +92,24 @@ async function latestVersion(recipe: RenderedRecipe): Promise<string> {
   const response = await fetch(url, { headers });
   if (response.status === 404) {
     await response.body?.cancel();
-    return await latestTag(repository);
+    return await latestTag(repository, tagPrefix);
   }
   if (!response.ok) {
     throw new Error(
       `${url} answered ${response.status}: ${await response.text()}`,
     );
   }
-  return Release.parse(await response.json()).tag_name.replace(/^v/, "");
+  return stripTagPrefix(
+    Release.parse(await response.json()).tag_name,
+    tagPrefix,
+  );
 }
 
 // For repositories that tag releases without publishing GitHub releases.
-async function latestTag(repository: string): Promise<string> {
+async function latestTag(
+  repository: string,
+  tagPrefix: string | undefined,
+): Promise<string> {
   const refs = await git(
     "ls-remote",
     "--tags",
@@ -87,9 +119,10 @@ async function latestTag(repository: string): Promise<string> {
   let latest: SemVer | undefined;
   for (const line of refs.split("\n")) {
     const tag = line.split("refs/tags/")[1];
-    const version = tag === undefined
+    const version = tag === undefined ||
+        (tagPrefix !== undefined && !tag.startsWith(tagPrefix))
       ? undefined
-      : tryParse(tag.replace(/^v/, ""));
+      : tryParse(stripTagPrefix(tag, tagPrefix));
     if (
       version !== undefined && version.prerelease?.length === 0 &&
       (latest === undefined || greaterThan(version, latest))
@@ -137,7 +170,12 @@ async function bumpRecipe(
   const { name, version: currentVersion } = first.recipe.package;
   const nextVersion = await latestVersion(first.recipe);
 
-  if (!greaterThan(parseVersion(nextVersion), parseVersion(currentVersion))) {
+  if (
+    !greaterThan(
+      comparableVersion(nextVersion),
+      comparableVersion(currentVersion),
+    )
+  ) {
     console.log(
       `${name} is at ${currentVersion}, latest is ${nextVersion}: up to date`,
     );

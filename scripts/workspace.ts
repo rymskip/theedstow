@@ -27,7 +27,14 @@ const RenderedRecipe = z.object({
   package: z.object({ name: z.string(), version: z.string() }),
   source: z.array(z.object({ url: z.string(), sha256: z.string() })),
   about: z.object({ repository: z.string() }),
-  extra: z.object({ latest_version_url: z.string().optional() }).optional(),
+  extra: z.object({
+    latest_version_url: z.string().optional(),
+    // Extracts the version from the page at latest_version_url, from the
+    // pattern's first capture group, when the page is not the bare version.
+    latest_version_pattern: z.string().optional(),
+    // Prefix of the upstream release tags, when it is not `v`.
+    tag_prefix: z.string().optional(),
+  }).optional(),
 });
 
 // A platform the recipe skips renders to no outputs.
