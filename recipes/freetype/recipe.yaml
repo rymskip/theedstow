@@ -1,5 +1,5 @@
 context:
-  version: "2.14.1"
+  version: "2.14.2"
   build_number: 0
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://download.savannah.gnu.org/releases/freetype/freetype-${{ version }}.tar.gz
-  sha256: 174d9e53402e1bf9ec7277e22ec199ba3e55a6be2c0740cb18c0ee9850fc8c34
+  sha256: 752c2671f85c54a84b7f0dd2b5cd26b6b741117033886ffbc5ac89a68464b848
 
 build:
   number: ${{ build_number }}
