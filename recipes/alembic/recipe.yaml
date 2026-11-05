@@ -1,5 +1,5 @@
 context:
-  version: "1.8.3"
+  version: "1.8.4"
   build_number: 0
 
 package:
@@ -9,7 +9,7 @@ package:
 
 source:
   url: https://github.com/alembic/alembic/archive/refs/tags/${{ version }}.tar.gz
-  sha256: b0bc74833bff118a869e81e6acb810a58797e77ef63143954b2f8e817c7f65cb
+  sha256: e0fe1e16e6ec9a699b5f016f9e0ed31a384a008cfd9184f31253e2e096b1afda
 
 build:
   number: ${{ build_number }}
