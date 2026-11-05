@@ -1,13 +1,18 @@
+# Windows is skipped, but rattler-build resolves stdlib("c") before it reads build.skip.
 c_stdlib:
   - if: osx
     then: macosx_deployment_target
   - if: linux
     then: sysroot
+  - if: win
+    then: vs
 c_stdlib_version:
   - if: osx
     then: "11.0"
   - if: linux
     then: "2.17"
+  - if: win
+    then: "2022"
 # The libjpeg-turbo and libdeflate versions Blender links, which conda-forge's libtiff has moved past.
 libjpeg-turbo:
   - "2.1.3"
