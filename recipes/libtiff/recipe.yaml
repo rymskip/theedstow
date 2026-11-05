@@ -72,3 +72,6 @@ about:
 extra:
   latest_version_url: https://libtiff.gitlab.io/libtiff/
   latest_version_pattern: (\d+\.\d+\.\d+) documentation
+  versions:
+    url: https://download.osgeo.org/libtiff/
+    pattern: tiff-(\d+\.\d+\.\d+)\.tar\.gz

@@ -1,14 +1,22 @@
-import { join } from "@std/path";
+import { copy } from "@std/fs";
+import { dirname, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { z } from "zod";
 
 export const recipesDir = "recipes";
+
+// Each planned build reads its recipe from staged/<recipe>/<version>, so one
+// run can build several releases of a recipe.
+export const stagedDir = "staged";
 
 // GitHub rejects a job matrix with more than 256 entries.
 export const maxMatrixJobs = 256;
 
 // Recipe names reach job names, artifact names and shell arguments.
 const recipeName = /^[a-z0-9][a-z0-9._-]*$/;
+
+// Versions reach the same places, and staged paths.
+const versionName = /^[0-9][0-9A-Za-z._+-]*$/;
 
 // The GitHub-hosted runner that builds and tests each platform natively.
 const runners = new Map([
@@ -32,6 +40,9 @@ const RenderedRecipe = z.object({
     // Extracts the version from the page at latest_version_url, from the
     // pattern's first capture group, when the page is not the bare version.
     latest_version_pattern: z.string().optional(),
+    // Lists every release, as each match of the pattern's first capture group
+    // on the page at url, for a project whose releases are not on GitHub.
+    versions: z.object({ url: z.string(), pattern: z.string() }).optional(),
     // Prefix of the upstream release tags, when it is not `v`.
     tag_prefix: z.string().optional(),
   }).optional(),
@@ -51,7 +62,8 @@ export interface Rendered {
 }
 
 export const Build = z.object({
-  recipe: z.string(),
+  recipe: z.string().regex(recipeName),
+  version: z.string().regex(versionName),
   platform: z.string(),
   runner: z.string(),
 });
@@ -85,6 +97,36 @@ export function recipePath(recipe: string): string {
   return join(recipesDir, recipe, "recipe.yaml");
 }
 
+export function stagedRecipePath(recipe: string, version: string): string {
+  if (!versionName.test(version)) {
+    throw new Error(
+      `${recipe} version ${version} is not a valid version, expected ${versionName.source}`,
+    );
+  }
+  return join(stagedDir, recipe, version, "recipe.yaml");
+}
+
+export async function clearStaged(): Promise<void> {
+  try {
+    await Deno.remove(stagedDir, { recursive: true });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      throw error;
+    }
+  }
+}
+
+// Copies the recipe's folder, with its variants and test files, to its staged
+// path for the version and returns the staged recipe.yaml.
+export async function stageRecipe(
+  recipe: string,
+  version: string,
+): Promise<string> {
+  const path = stagedRecipePath(recipe, version);
+  await copy(join(recipesDir, recipe), dirname(path));
+  return path;
+}
+
 async function render(
   path: string,
   platform: string,
@@ -114,7 +156,7 @@ async function render(
 export async function renderPlatforms(
   path: string,
   targetPlatforms: string[],
-): Promise<Rendered[]> {
+): Promise<[Rendered, ...Rendered[]]> {
   const rendered = [];
   for (const platform of targetPlatforms) {
     const recipe = await render(path, platform);
@@ -122,18 +164,29 @@ export async function renderPlatforms(
       rendered.push({ platform, recipe });
     }
   }
-  return rendered;
+  const [first, ...rest] = rendered;
+  if (first === undefined) {
+    throw new Error(`${path} builds for none of ${targetPlatforms.join(", ")}`);
+  }
+  for (const { platform, recipe } of rest) {
+    if (recipe.package.version !== first.recipe.package.version) {
+      throw new Error(
+        `${path} renders version ${recipe.package.version} for ${platform} but ${first.recipe.package.version} for ${first.platform}`,
+      );
+    }
+  }
+  return [first, ...rest];
 }
 
 export function builds(recipe: string, rendered: Rendered[]): Build[] {
-  return rendered.map(({ platform }) => {
+  return rendered.map(({ platform, recipe: { package: { version } } }) => {
     const runner = runners.get(platform);
     if (runner === undefined) {
       throw new Error(
         `no runner builds ${platform}, add one to scripts/workspace.ts`,
       );
     }
-    return { recipe, platform, runner };
+    return Build.parse({ recipe, version, platform, runner });
   });
 }
 

@@ -72,3 +72,6 @@ about:
 extra:
   latest_version_url: https://freetype.org/
   latest_version_pattern: FreeType (\d+\.\d+\.\d+)
+  versions:
+    url: https://download.savannah.gnu.org/releases/freetype/
+    pattern: freetype-(\d+\.\d+\.\d+)\.tar\.gz

@@ -2,6 +2,7 @@
 // base, such as the first push of a branch, every recipe counts.
 import {
   builds,
+  clearStaged,
   git,
   maxMatrixJobs,
   platforms,
@@ -10,6 +11,7 @@ import {
   recipesDir,
   renderPlatforms,
   setOutput,
+  stageRecipe,
 } from "./workspace.ts";
 
 async function commitExists(sha: string): Promise<boolean> {
@@ -41,14 +43,12 @@ async function main(): Promise<void> {
   const changed = await changedRecipes(await recipeNames());
   console.log(`changed recipes: ${changed.join(", ") || "none"}`);
   const targetPlatforms = await platforms();
+  await clearStaged();
   const planned = [];
   for (const recipe of changed) {
-    planned.push(
-      ...builds(
-        recipe,
-        await renderPlatforms(recipePath(recipe), targetPlatforms),
-      ),
-    );
+    const rendered = await renderPlatforms(recipePath(recipe), targetPlatforms);
+    await stageRecipe(recipe, rendered[0].recipe.package.version);
+    planned.push(...builds(recipe, rendered));
   }
   if (planned.length > maxMatrixJobs) {
     throw new Error(

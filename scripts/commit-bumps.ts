@@ -1,21 +1,29 @@
-// Commits the bumped recipes whose packages built on every planned platform. A
-// recipe that failed anywhere stays at its old version, so the next run retries
-// it.
+// Commits each bumped recipe's staged releases oldest first, one commit per
+// release that built on every planned platform. A recipe stops at its first
+// release that failed anywhere, so the next run retries from there.
 import { join } from "@std/path";
 import { z } from "zod";
-import { Build, git, recipePath } from "./workspace.ts";
+import { Build, git, recipePath, stagedRecipePath } from "./workspace.ts";
 
 const Bumped = z.array(
-  z.object({ recipe: z.string(), name: z.string(), version: z.string() }),
+  z.object({
+    recipe: z.string(),
+    name: z.string(),
+    versions: z.array(z.string()).nonempty(),
+  }),
 );
 
 const Builds = z.array(Build);
 
-async function built(recipe: string, platform: string): Promise<boolean> {
+async function built(
+  recipe: string,
+  version: string,
+  platform: string,
+): Promise<boolean> {
   try {
     for await (
       const entry of Deno.readDir(
-        join("output", `package-${recipe}-${platform}`),
+        join("output", `package-${recipe}-${version}-${platform}`),
       )
     ) {
       if (entry.name.endsWith(".conda")) {
@@ -39,58 +47,52 @@ async function main(): Promise<void> {
     throw new Error("GITHUB_REF_NAME is not set");
   }
 
-  const complete = [];
-  const incomplete = [];
+  const committed = [];
   for (const bump of bumped) {
-    const missing = [];
-    for (
-      const { platform } of planned.filter(({ recipe }) =>
-        recipe === bump.recipe
-      )
-    ) {
-      if (!await built(bump.recipe, platform)) {
-        missing.push(platform);
+    for (const version of bump.versions) {
+      const platforms = planned.filter((build) =>
+        build.recipe === bump.recipe && build.version === version
+      ).map((build) => build.platform);
+      if (platforms.length === 0) {
+        throw new Error(`no builds were planned for ${bump.name} ${version}`);
       }
-    }
-    if (missing.length > 0) {
-      console.log(
-        `not committing ${bump.name} ${bump.version}: no package for ${
-          missing.join(", ")
-        }`,
+      const missing = [];
+      for (const platform of platforms) {
+        if (!await built(bump.recipe, version, platform)) {
+          missing.push(platform);
+        }
+      }
+      if (missing.length > 0) {
+        console.log(
+          `not committing ${bump.name} ${version} or later: no package for ${
+            missing.join(", ")
+          }`,
+        );
+        break;
+      }
+      await Deno.writeTextFile(
+        recipePath(bump.recipe),
+        await Deno.readTextFile(stagedRecipePath(bump.recipe, version)),
       );
-      incomplete.push(bump);
-      continue;
+      await git("add", recipePath(bump.recipe));
+      await git(
+        "commit",
+        "--message",
+        `feat(recipes): ${bump.name} ${version}`,
+      );
+      committed.push(`${bump.name} ${version}`);
     }
-    complete.push(bump);
   }
 
-  // The checkout holds every planned bump, so a skipped recipe left modified
-  // would make the rebase below refuse the dirty tree.
-  if (incomplete.length > 0) {
-    await git(
-      "restore",
-      "--",
-      ...incomplete.map((bump) => recipePath(bump.recipe)),
-    );
-  }
-
-  if (complete.length === 0) {
+  if (committed.length === 0) {
     console.log(
-      "no bumped recipe built on all its platforms, nothing to commit",
+      "no bumped release built on all its platforms, nothing to commit",
     );
     return;
   }
-  await git("add", ...complete.map((bump) => recipePath(bump.recipe)));
-  await git(
-    "commit",
-    "--message",
-    `feat(recipes): ${
-      complete.map((bump) => `${bump.name} ${bump.version}`).join(", ")
-    }`,
-  );
   await git("pull", "--rebase", "origin", branch);
   await git("push", "origin", `HEAD:${branch}`);
-  console.log(`committed ${complete.map((bump) => bump.name).join(", ")}`);
+  console.log(`committed ${committed.join(", ")}`);
 }
 
 await main();

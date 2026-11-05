@@ -58,3 +58,6 @@ about:
 extra:
   latest_version_url: https://potrace.sourceforge.net/
   latest_version_pattern: potrace-(\d+\.\d+(?:\.\d+)?)\.tar\.gz
+  versions:
+    url: https://sourceforge.net/projects/potrace/rss?path=/
+    pattern: potrace-(\d+\.\d+(?:\.\d+)?)\.tar\.gz
