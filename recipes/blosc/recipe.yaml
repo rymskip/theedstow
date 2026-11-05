@@ -1,5 +1,5 @@
 context:
-  version: "1.21.2"
+  version: "1.21.3"
   build_number: 0
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://github.com/Blosc/c-blosc/archive/v${{ version }}.tar.gz
-  sha256: e5b4ddb4403cbbad7aab6e9ff55762ef298729c8a793c6147160c771959ea2aa
+  sha256: 941016c4564bca662080bb01aea74f06630bd665e598c6f6967fd91b2e2e0bb6
 
 build:
   number: ${{ build_number }}
