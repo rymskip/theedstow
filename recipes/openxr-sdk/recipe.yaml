@@ -1,0 +1,61 @@
+context:
+  version: "1.1.53"
+  build_number: 0
+
+package:
+  name: openxr-sdk
+  version: ${{ version }}
+
+source:
+  url: https://github.com/KhronosGroup/OpenXR-SDK/archive/refs/tags/release-${{ version }}.tar.gz
+  sha256: 3ccd6835e213e3226e828660b80b8e2178f1571ba743f16088c942ebce84f6ef
+
+build:
+  number: ${{ build_number }}
+  # conda-forge publishes openxr-sdk for linux-64.
+  skip: win or (linux and x86_64)
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DBUILD_FORCE_GENERATION=OFF
+        -DBUILD_LOADER=ON
+        -DDYNAMIC_LOADER=ON
+        -DBUILD_API_LAYERS=OFF
+        -DBUILD_TESTS=OFF
+        -DBUILD_WITH_SYSTEM_JSONCPP=OFF
+        ${{ "-DBUILD_WITH_WAYLAND_HEADERS=OFF -DBUILD_WITH_XCB_HEADERS=OFF -DBUILD_WITH_XLIB_HEADERS=OFF" if linux else "" }}
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("c") }}
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  run_exports:
+    - ${{ pin_subpackage("openxr-sdk", upper_bound="x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - openxr_loader
+      include:
+        - openxr/openxr.h
+      files:
+        - lib/cmake/openxr/OpenXRConfig.cmake
+
+about:
+  homepage: https://www.khronos.org/openxr/
+  repository: https://github.com/KhronosGroup/OpenXR-SDK
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: OpenXR loader and headers
+  description: |
+    The Khronos OpenXR SDK: the OpenXR loader as a shared library and the
+    OpenXR API headers.
+
+extra:
+  tag_prefix: release-

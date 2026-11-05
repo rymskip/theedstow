@@ -1,0 +1,58 @@
+context:
+  version: "3.5.2"
+  build_number: 0
+
+package:
+  name: manifold
+  version: ${{ version }}
+
+source:
+  url: https://github.com/elalish/manifold/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 35cb5e0d78882f461ec39b17d8f09c2aceca761356f3ce948e3f3908289b8f2e
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    # LDFLAGS already carries the prefix rpath; installing manifold's own rpath would duplicate it.
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DCMAKE_SKIP_INSTALL_RPATH=ON
+        -DBUILD_SHARED_LIBS=ON
+        -DMANIFOLD_PAR=ON
+        -DMANIFOLD_CROSS_SECTION=OFF
+        -DMANIFOLD_TEST=OFF
+        -DMANIFOLD_DOWNLOADS=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  host:
+    - tbb-devel
+  run_exports:
+    - ${{ pin_subpackage("manifold", upper_bound="x.x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - manifold
+      include:
+        - manifold/manifold.h
+      files:
+        - lib/cmake/manifold/manifoldConfig.cmake
+
+about:
+  homepage: https://manifoldcad.org
+  repository: https://github.com/elalish/manifold
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: Geometry library for fast, robust mesh Boolean operations
+  description: |
+    Manifold builds guaranteed-manifold meshes and performs fast, robust
+    Boolean operations on them, with TBB-based parallelism.

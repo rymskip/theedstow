@@ -1,0 +1,74 @@
+context:
+  version: "2.13.3"
+  build_number: 0
+
+package:
+  name: freetype
+  version: ${{ version }}
+
+source:
+  url: https://download.savannah.gnu.org/releases/freetype/freetype-${{ version }}.tar.gz
+  sha256: 5c3a8e78f7b24c20b25b54ee575d6daa40007a5f4eea2845861c3409b3021747
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    # WOFF2 needs brotli, which conda-forge's FreeType leaves out.
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DBUILD_SHARED_LIBS=ON
+        -DFT_REQUIRE_BROTLI=ON
+        -DFT_REQUIRE_ZLIB=ON
+        -DFT_DISABLE_BZIP2=ON
+        -DFT_DISABLE_HARFBUZZ=ON
+        -DFT_DISABLE_PNG=ON
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("c") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+    - pkg-config
+  host:
+    # brotli carries the headers; FreeType links only the decoder.
+    - brotli
+    - libbrotlidec
+    - zlib
+  ignore_run_exports:
+    from_package:
+      - brotli
+  run_exports:
+    - ${{ pin_subpackage("freetype", upper_bound="x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - freetype
+      include:
+        - freetype2/ft2build.h
+      files:
+        - lib/cmake/freetype/freetype-config.cmake
+  - script:
+      - grep -q "^#define FT_CONFIG_OPTION_USE_BROTLI" "$PREFIX/include/freetype2/freetype/config/ftoption.h"
+
+about:
+  homepage: https://freetype.org
+  repository: https://gitlab.freedesktop.org/freetype/freetype
+  license: FTL OR GPL-2.0-or-later
+  license_file:
+    - LICENSE.TXT
+    - docs/FTL.TXT
+    - docs/GPLv2.TXT
+  summary: Font rendering library with WOFF2 support
+  description: |
+    FreeType renders TrueType, OpenType and other font formats. This build
+    decompresses WOFF2 fonts through brotli and reads zlib-compressed fonts.
+
+extra:
+  latest_version_url: https://freetype.org/
+  latest_version_pattern: FreeType (\d+\.\d+\.\d+)

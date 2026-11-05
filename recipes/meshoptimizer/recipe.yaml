@@ -1,0 +1,53 @@
+context:
+  version: "1.1"
+  build_number: 0
+
+package:
+  name: meshoptimizer
+  version: ${{ version }}
+
+source:
+  url: https://github.com/zeux/meshoptimizer/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: b787011f81b4b3069c2f9065b7c191efdd4189a49be32ba5282dd5579f05261a
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    # LDFLAGS names $PREFIX/lib, which nothing has created in a package without host dependencies.
+    - mkdir -p "$PREFIX/lib"
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DMESHOPT_BUILD_SHARED_LIBS=ON
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  run_exports:
+    # The shared library carries no SONAME version, so every release is its own ABI.
+    - ${{ pin_subpackage("meshoptimizer", upper_bound="x.x.x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - meshoptimizer
+      include:
+        - meshoptimizer.h
+      files:
+        - lib/cmake/meshoptimizer/meshoptimizerConfig.cmake
+
+about:
+  homepage: https://meshoptimizer.org
+  repository: https://github.com/zeux/meshoptimizer
+  license: MIT
+  license_file: LICENSE.md
+  summary: Mesh optimization and compression library
+  description: |
+    meshoptimizer reorders and simplifies meshes for faster GPU rendering, and
+    encodes vertex and index buffers compactly.

@@ -1,0 +1,59 @@
+context:
+  version: "1.8.3"
+  build_number: 0
+
+package:
+  # conda-forge's `alembic` is the unrelated SQLAlchemy migration tool.
+  name: alembic-cpp
+  version: ${{ version }}
+
+source:
+  url: https://github.com/alembic/alembic/archive/refs/tags/${{ version }}.tar.gz
+  sha256: b0bc74833bff118a869e81e6acb810a58797e77ef63143954b2f8e817c7f65cb
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    # LDFLAGS already carries the prefix rpath; the tools' own install rpath would duplicate it.
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DCMAKE_SKIP_INSTALL_RPATH=ON
+        -DUSE_TESTS=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  host:
+    - imath
+  run_exports:
+    - ${{ pin_subpackage("alembic-cpp", upper_bound="x.x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - Alembic
+      include:
+        - Alembic/Abc/All.h
+      files:
+        - lib/cmake/Alembic/AlembicConfig.cmake
+      bin:
+        - abcls
+  - script:
+      - abcls --help
+
+about:
+  homepage: https://www.alembic.io
+  repository: https://github.com/alembic/alembic
+  license: BSD-3-Clause
+  license_file: LICENSE.txt
+  summary: Open framework for storing and sharing scene data
+  description: |
+    The Alembic C++ library and command-line tools for baked geometry and
+    animation interchange, built with Ogawa storage and without HDF5.

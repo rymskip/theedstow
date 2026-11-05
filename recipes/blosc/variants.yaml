@@ -1,0 +1,24 @@
+c_stdlib:
+  - if: osx
+    then: macosx_deployment_target
+  - if: linux
+    then: sysroot
+c_stdlib_version:
+  - if: osx
+    then: "11.0"
+  - if: linux
+    then: "2.17"
+# 1.21.1 declares CMake 2.8.12 as its minimum, which CMake 4 rejects.
+cmake:
+  - "3.31"
+# conda-forge's own compilers. Newer libc++ drops transitive includes this release relies on.
+c_compiler_version:
+  - if: osx
+    then: "21"
+  - if: linux
+    then: "15"
+cxx_compiler_version:
+  - if: osx
+    then: "21"
+  - if: linux
+    then: "15"

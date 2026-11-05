@@ -1,0 +1,26 @@
+c_stdlib:
+  - if: osx
+    then: macosx_deployment_target
+  - if: linux
+    then: sysroot
+c_stdlib_version:
+  - if: osx
+    then: "11.0"
+  - if: linux
+    then: "2.17"
+# The libjpeg-turbo and libdeflate versions Blender links, which conda-forge's libtiff has moved past.
+libjpeg-turbo:
+  - "2.1.3"
+libdeflate:
+  - "1.18"
+# conda-forge's own compilers. Newer libc++ drops transitive includes this release relies on.
+c_compiler_version:
+  - if: osx
+    then: "21"
+  - if: linux
+    then: "15"
+cxx_compiler_version:
+  - if: osx
+    then: "21"
+  - if: linux
+    then: "15"

@@ -1,0 +1,57 @@
+context:
+  version: "1.16"
+  build_number: 0
+
+package:
+  name: potrace
+  version: ${{ version }}
+
+source:
+  url: https://potrace.sourceforge.net/download/${{ version }}/potrace-${{ version }}.tar.gz
+  sha256: be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    - ./configure --prefix="$PREFIX" --with-libpotrace --disable-static
+    - make -j${CPU_COUNT}
+    - make install
+
+requirements:
+  build:
+    - ${{ compiler("c") }}
+    - ${{ stdlib("c") }}
+    - make
+  host:
+    - zlib
+  run_exports:
+    - ${{ pin_subpackage("potrace", upper_bound="x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - potrace
+      include:
+        - potracelib.h
+      bin:
+        - potrace
+  - script:
+      - potrace --version
+
+about:
+  homepage: https://potrace.sourceforge.net
+  # Potrace publishes no source repository, only release tarballs.
+  repository: https://potrace.sourceforge.net
+  license: GPL-2.0-or-later
+  license_file: COPYING
+  summary: Transforms bitmaps into smooth, scalable vector images
+  description: |
+    Potrace traces bitmaps into vector outlines, as a command-line tool and
+    as the libpotrace library.
+
+extra:
+  latest_version_url: https://potrace.sourceforge.net/
+  latest_version_pattern: potrace-(\d+\.\d+(?:\.\d+)?)\.tar\.gz

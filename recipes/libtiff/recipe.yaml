@@ -1,0 +1,74 @@
+context:
+  version: "4.7.1"
+  build_number: 0
+
+package:
+  name: libtiff
+  version: ${{ version }}
+
+source:
+  url: https://download.osgeo.org/libtiff/tiff-${{ version }}.tar.gz
+  sha256: f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    # The zlib, libdeflate and JPEG codecs only; the external LZMA, JBIG, ZSTD, WebP and LERC
+    # codecs stay off. The library alone, without the command-line tools or manual.
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -Dlzma=OFF
+        -Djbig=OFF
+        -Dzstd=OFF
+        -Dwebp=OFF
+        -Dlerc=OFF
+        -Dtiff-tools=OFF
+        -Dtiff-docs=OFF
+        -Dtiff-tests=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("c") }}
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  host:
+    - libdeflate
+    - libjpeg-turbo
+    - zlib
+  run_exports:
+    - ${{ pin_subpackage("libtiff", upper_bound="x.x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - tiff
+        - tiffxx
+      include:
+        - tiffio.h
+      files:
+        - lib/cmake/tiff/TiffConfig.cmake
+  - script:
+      - grep -q "^#define JPEG_SUPPORT" "$PREFIX/include/tiffconf.h"
+      - grep -q "^#define ZIP_SUPPORT" "$PREFIX/include/tiffconf.h"
+      - grep -q "^#define LIBDEFLATE_SUPPORT" "$PREFIX/include/tiffconf.h"
+
+about:
+  homepage: https://libtiff.gitlab.io/libtiff/
+  repository: https://gitlab.com/libtiff/libtiff
+  license: libtiff
+  license_file: LICENSE.md
+  summary: TIFF image library with the zlib, libdeflate and JPEG codecs
+  description: |
+    libtiff reads and writes TIFF images. This build supports the built-in
+    codecs plus zlib, libdeflate and JPEG compression, without the external
+    LZMA, JBIG, ZSTD, WebP and LERC codecs.
+
+extra:
+  latest_version_url: https://libtiff.gitlab.io/libtiff/
+  latest_version_pattern: (\d+\.\d+\.\d+) documentation

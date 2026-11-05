@@ -1,0 +1,53 @@
+context:
+  version: "0.7.1"
+  build_number: 0
+
+package:
+  name: openpgl
+  version: ${{ version }}
+
+source:
+  url: https://github.com/OpenPathGuidingLibrary/openpgl/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: d62d24241232a526491328f341df9add274fc84ae9818470d3edb5ae6141ac63
+
+build:
+  number: ${{ build_number }}
+  skip: win
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
+        -DOPENPGL_BUILD_STATIC=OFF
+        -DOPENPGL_BUILD_TOOLS=OFF
+    - cmake --build build --parallel ${CPU_COUNT}
+    - cmake --install build
+
+requirements:
+  build:
+    - ${{ compiler("cxx") }}
+    - ${{ stdlib("c") }}
+    - cmake
+    - ninja
+  host:
+    - tbb-devel
+  run_exports:
+    - ${{ pin_subpackage("openpgl", upper_bound="x.x") }}
+
+tests:
+  - package_contents:
+      lib:
+        - openpgl
+      include:
+        - openpgl/openpgl.h
+      files:
+        - lib/cmake/openpgl-${{ version }}/openpglConfig.cmake
+
+about:
+  homepage: https://github.com/OpenPathGuidingLibrary/openpgl
+  repository: https://github.com/OpenPathGuidingLibrary/openpgl
+  license: Apache-2.0
+  license_file: LICENSE.txt
+  summary: Intel Open Path Guiding Library for path-traced rendering
+  description: |
+    Open PGL implements path guiding methods that learn the light distribution
+    of a scene to steer path tracing toward the directions that matter.
