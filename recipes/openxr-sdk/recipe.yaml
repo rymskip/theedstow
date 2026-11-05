@@ -1,5 +1,5 @@
 context:
-  version: "1.1.60"
+  version: "1.1.61"
   build_number: 0
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://github.com/KhronosGroup/OpenXR-SDK/archive/refs/tags/release-${{ version }}.tar.gz
-  sha256: a55afd26df6cb41ea8217e8375e3d4ffabdef047141f22ffe725d1c3adb1c43b
+  sha256: d5e2773d282642e6e250bd10266f316fc3ff3b8602c83db009a1f434205998e6
 
 build:
   number: ${{ build_number }}
