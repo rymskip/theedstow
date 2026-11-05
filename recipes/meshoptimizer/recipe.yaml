@@ -1,5 +1,5 @@
 context:
-  version: "1.1"
+  version: "1.1.1"
   build_number: 0
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://github.com/zeux/meshoptimizer/archive/refs/tags/v${{ version }}.tar.gz
-  sha256: b787011f81b4b3069c2f9065b7c191efdd4189a49be32ba5282dd5579f05261a
+  sha256: 30cd4d28fe71bf58c614c23c87fed385bac223acbb2dfaf343d20ffc3584a083
 
 build:
   number: ${{ build_number }}
