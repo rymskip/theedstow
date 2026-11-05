@@ -40,6 +40,8 @@ requirements:
     - if: linux
       then:
         - xorg-libx11
+        # X11/X.h, which CMake's FindX11 looks for.
+        - xorg-xorgproto
   ignore_run_exports:
     from_package:
       - xorg-libx11
