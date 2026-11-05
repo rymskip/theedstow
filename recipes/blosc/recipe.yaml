@@ -19,12 +19,14 @@ build:
     # LDFLAGS names $PREFIX/lib, which nothing has created in a package without host dependencies.
     - mkdir -p "$PREFIX/lib"
     # Only the built-in BloscLZ and LZ4 codecs, with no external libraries.
+    # The project asks GCC for gnu99 only on x86; GCC's C23 default makes bool a keyword elsewhere.
     - cmake -S . -B build -G Ninja ${CMAKE_ARGS}
         -DBUILD_STATIC=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_BENCHMARKS=OFF
         -DDEACTIVATE_ZLIB=ON
         -DDEACTIVATE_ZSTD=ON
+        ${{ "-DCMAKE_C_STANDARD=99" if linux and aarch64 else "" }}
     - cmake --build build --parallel ${CPU_COUNT}
     - cmake --install build
 

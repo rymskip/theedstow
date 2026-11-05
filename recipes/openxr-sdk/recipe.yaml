@@ -24,7 +24,7 @@ build:
         -DBUILD_API_LAYERS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_WITH_SYSTEM_JSONCPP=OFF
-        ${{ "-DBUILD_WITH_WAYLAND_HEADERS=OFF -DBUILD_WITH_XCB_HEADERS=OFF -DBUILD_WITH_XLIB_HEADERS=OFF" if linux else "" }}
+        ${{ "-DBUILD_WITH_WAYLAND_HEADERS=OFF -DBUILD_WITH_XCB_HEADERS=OFF -DBUILD_WITH_XLIB_HEADERS=ON" if linux else "" }}
     - cmake --build build --parallel ${CPU_COUNT}
     - cmake --install build
 
@@ -35,6 +35,14 @@ requirements:
     - ${{ stdlib("c") }}
     - cmake
     - ninja
+  host:
+    # The loader compiles in Xlib support from the X11 headers, without linking libX11.
+    - if: linux
+      then:
+        - xorg-libx11
+  ignore_run_exports:
+    from_package:
+      - xorg-libx11
   run_exports:
     - ${{ pin_subpackage("openxr-sdk", upper_bound="x") }}
 

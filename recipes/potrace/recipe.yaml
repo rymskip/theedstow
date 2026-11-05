@@ -16,6 +16,8 @@ build:
   dynamic_linking:
     overlinking_behavior: error
   script:
+    # The release's config.sub predates arm64-apple-darwin.
+    - cp "$BUILD_PREFIX"/share/gnuconfig/config.* .
     - ./configure --prefix="$PREFIX" --with-libpotrace --disable-static
     - make -j${CPU_COUNT}
     - make install
@@ -25,6 +27,7 @@ requirements:
     - ${{ compiler("c") }}
     - ${{ stdlib("c") }}
     - make
+    - gnuconfig
   host:
     - zlib
   run_exports:
