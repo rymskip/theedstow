@@ -1,5 +1,5 @@
 context:
-  version: "3.5.4"
+  version: "3.5.5"
   build_number: 0
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://github.com/elalish/manifold/archive/refs/tags/v${{ version }}.tar.gz
-  sha256: ce2f8b7798409b9f07e092c0ec0524ed0806431e01aea4020b65d0e934ea9438
+  sha256: e4542acaa8852e7151928a78f908711bf30f4da5132c0f735f1ba739997e19d1
 
 build:
   number: ${{ build_number }}
