@@ -63,10 +63,20 @@ jobs:
         env:
           RECIPE: ${{ matrix.recipe }}
           VERSION: ${{ matrix.version }}
+      # The package goes in a directory named as its artifact, which the publish job merges every
+      # artifact into: download-artifact nests an artifact in its name only when more than one
+      # matches, so one package alone would otherwise land outside it.
+      - shell: bash
+        run: |
+          mkdir -p "artifact/$ARTIFACT"
+          cp "output/$PLATFORM/"*.conda "artifact/$ARTIFACT/"
+        env:
+          ARTIFACT: package-${{ matrix.recipe }}-${{ matrix.version }}-${{ matrix.platform }}
+          PLATFORM: ${{ matrix.platform }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-${{ matrix.recipe }}-${{ matrix.version }}-${{ matrix.platform }}
-          path: output/${{ matrix.platform }}/*.conda
+          path: artifact
 
   publish:
     needs: [plan, build]
@@ -87,6 +97,7 @@ jobs:
         with:
           pattern: package-*
           path: output
+          merge-multiple: true
       - uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
       - run: pixi run upload
       - run: |
