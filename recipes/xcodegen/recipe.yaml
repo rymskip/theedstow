@@ -1,5 +1,5 @@
 context:
-  version: "2.47.0"
+  version: "2.48.0"
   build_number: 0
 
 package:
@@ -9,7 +9,7 @@ package:
 source:
   # Single universal (x86_64 + arm64) release archive covers both macOS subdirs.
   - url: https://github.com/yonaskolb/XcodeGen/releases/download/${{ version }}/xcodegen.zip
-    sha256: 6ef12a3ef5327c2c713397f46d9160550f8b1cdc5c925cd884d65c77c9f696cd
+    sha256: 620c9f0dc10849f94728ab5df52d225ebab8187439dd6fee1925e59e80dff892
 
 build:
   number: ${{ build_number }}
