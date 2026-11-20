@@ -1,0 +1,15 @@
+c_compiler:
+  - if: win
+    then: vs2022
+c_stdlib:
+  - if: osx
+    then: macosx_deployment_target
+  - if: linux
+    then: sysroot
+  - if: win
+    then: vs
+c_stdlib_version:
+  - if: osx
+    then: "11.0"
+  - if: linux
+    then: "2.17"

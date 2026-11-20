@@ -1,0 +1,78 @@
+context:
+  version: "2.0.0"
+  build_number: 0
+  # Upstream's last release, 2.0.0, panics on emptying a trash item whose file
+  # is missing (oberblastmeister/trashy#124). This builds the fork's branch that
+  # fixes it until upstream releases the fix.
+  commit: 538a565b76153255bb653c6526899ba41d19f367
+  cargo_install: cargo install --locked --no-track --path .
+
+package:
+  name: trashy
+  version: ${{ version }}
+
+source:
+  url: https://github.com/rymskip/trashy/archive/${{ commit }}.tar.gz
+  sha256: 63b03355adb95c9394028c9ccb66ea9aec92e369352f78e4bbd0511d923871e4
+
+build:
+  number: ${{ build_number }}
+  # trash only lists, restores and empties the trash on Windows and freedesktop systems.
+  skip: osx
+  dynamic_linking:
+    overlinking_behavior: error
+  script:
+    - if: unix
+      then:
+        - export CARGO_HOME="$SRC_DIR/.cargo-home"
+        - ${{ cargo_install }} --root "$PREFIX"
+        # The binary was named trash before upstream renamed it.
+        - ln -s trashy "$PREFIX/bin/trash"
+      else:
+        - set "CARGO_HOME=%TEMP%\trashy-cargo-home"
+        - ${{ cargo_install }} --root "%LIBRARY_PREFIX%"
+        # Windows packages cannot carry links, so the old name is a copy.
+        - copy /b "%LIBRARY_BIN%\trashy.exe" "%LIBRARY_BIN%\trash.exe"
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('rust') }}
+    - ${{ stdlib('c') }}
+
+tests:
+  - package_contents:
+      bin:
+        - trashy
+        - trash
+  - if: unix
+    then:
+      script:
+        - trashy --version | grep -Eq "^trashy ${{ version | replace('.', '\\.') }}$"
+        - trash --version | grep -Eq "^trashy ${{ version | replace('.', '\\.') }}$"
+        - bash empty-missing-item.sh
+      files:
+        recipe:
+          - empty-missing-item.sh
+    else:
+      script:
+        - trashy --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}$"
+        - trash --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}$"
+
+about:
+  homepage: https://github.com/oberblastmeister/trashy
+  repository: https://github.com/rymskip/trashy
+  license: MIT OR Apache-2.0
+  license_file:
+    - LICENSE-MIT
+    - LICENSE-APACHE
+  summary: A cli system trash manager, alternative to rm and trash-cli
+  description: |
+    trashy built from a fork that empties trash items whose file is missing,
+    which upstream's 2.0.0 release panics on. It also installs the binary under
+    its old name, trash.
+
+extra:
+  # The fork's branch has no release of its own, so its manifest names the version.
+  latest_version_url: https://raw.githubusercontent.com/rymskip/trashy/fix/empty-missing-items/Cargo.toml
+  latest_version_pattern: \nversion = "([^"]+)"
