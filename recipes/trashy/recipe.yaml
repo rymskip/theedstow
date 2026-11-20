@@ -56,9 +56,11 @@ tests:
           - empty-missing-item.sh
     else:
       script:
-        - trashy --version
-        - trashy --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}\>"
-        - trash --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}\>"
+        # findstr's regex rejects trashy's version line, so the line is compared whole.
+        - for /f "delims=" %%L in ('trashy --version') do set "trashy_version=%%L"
+        - if not "%trashy_version%" == "trashy ${{ version }}" (echo trashy --version printed "%trashy_version%" & exit /b 1)
+        - for /f "delims=" %%L in ('trash --version') do set "trash_version=%%L"
+        - if not "%trash_version%" == "trashy ${{ version }}" (echo trash --version printed "%trash_version%" & exit /b 1)
 
 about:
   homepage: https://github.com/oberblastmeister/trashy
