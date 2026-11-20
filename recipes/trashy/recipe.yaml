@@ -56,7 +56,7 @@ tests:
           - empty-missing-item.sh
     else:
       script:
-        # findstr's $ matches only before a CRLF, and trashy ends the line with LF.
+        - trashy --version
         - trashy --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}\>"
         - trash --version | findstr /r /b /c:"trashy ${{ version | replace('.', '\\.') }}\>"
 
